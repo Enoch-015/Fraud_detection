@@ -1,0 +1,36 @@
+# Dockerfile.flink-app
+FROM apache/flink:1.16.1-scala_2.12
+
+USER root
+
+# 1. Install Python, pip, and a JDK with headers
+RUN apt-get update && \
+    apt-get install -y \
+      python3 python3-pip \
+      openjdk-11-jdk-headless \
+      ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# 2. Point JAVA_HOME at the actual install path
+ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+
+# 3. Copy requirements and install Python dependencies
+WORKDIR /opt/pyflink-jobs
+COPY requirements.txt ./
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+# 4. Copy the PyFlink job script
+COPY job.py ./
+
+# 5. Download required Flink connector JARs into the JVM classpath
+WORKDIR /opt/flink/lib
+RUN wget -q https://repo1.maven.org/maven2/org/apache/flink/flink-connector-postgres-cdc/3.1.1/flink-connector-postgres-cdc-3.1.1.jar && \
+    wget -q https://repo1.maven.org/maven2/org/apache/flink/flink-connector-jdbc_2.12/1.16.0/flink-connector-jdbc_2.12-1.16.0.jar && \
+    wget -q https://repo1.maven.org/maven2/org/apache/flink/flink-connector-kafka_2.12/1.16.0/flink-connector-kafka_2.12-1.16.0.jar
+
+# 6. Entrypoint: submit the PyFlink job and tail logs
+WORKDIR /opt/pyflink-jobs
+ENTRYPOINT ["sh", "-c", "\
+    /opt/flink/bin/flink run-application \
+      --python /opt/pyflink-jobs/job.py \
+    && tail -f /opt/flink/log/*"]

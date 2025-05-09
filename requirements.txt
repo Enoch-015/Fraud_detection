@@ -1,0 +1,13 @@
+pandas
+rich
+requests
+mlflow
+holidays
+typing-extensions
+zenml[mlflow,server]
+jq
+click
+fastapi
+uvicorn
+
+
